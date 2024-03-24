@@ -1,0 +1,190 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/budimanjojo/talhelper/master/pkg/config/schemas/talconfig.json
+---
+# renovate: datasource=docker depName=ghcr.io/siderolabs/installer
+talosVersion: v1.6.7
+# renovate: datasource=docker depName=ghcr.io/siderolabs/kubelet
+kubernetesVersion: v1.29.3
+
+clusterName: &cluster home-kubernetes
+endpoint: https://172.16.10.240:6443
+clusterPodNets:
+  - "10.69.0.0/16"
+clusterSvcNets:
+  - "10.96.0.0/16"
+additionalApiServerCertSans: &sans
+  - "172.16.10.240"
+  - 127.0.0.1 # KubePrism
+additionalMachineCertSans: *sans
+cniConfig:
+  name: none
+
+nodes:
+  - hostname: "vdhclu01node01"
+    ipAddress: "172.16.11.81"
+    installDiskSelector:
+      serial: "2244E6801787"
+    talosImageURL: factory.talos.dev/installer/613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "88:ae:dd:62:1b:3c"
+        dhcp: false
+        addresses:
+          - "172.16.11.81/23"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "172.16.2.1"
+        vip:
+          ip: "172.16.10.240"
+  - hostname: "vdhclu01node02"
+    ipAddress: "172.16.11.82"
+    installDiskSelector:
+      serial: "2244E6801A88"
+    talosImageURL: factory.talos.dev/installer/613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "88:ae:dd:62:29:bf"
+        dhcp: false
+        addresses:
+          - "172.16.11.82/23"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "172.16.2.1"
+        vip:
+          ip: "172.16.10.240"
+  - hostname: "vdhclu01node03"
+    ipAddress: "172.16.11.83"
+    installDiskSelector:
+      serial: "2244E6801A85"
+    talosImageURL: factory.talos.dev/installer/613e1592b2da41ae5e265e8789429f22e121aab91cb4deb6bc3c0b6262961245
+    controlPlane: true
+    networkInterfaces:
+      - deviceSelector:
+          hardwareAddr: "88:ae:dd:62:17:a6"
+        dhcp: false
+        addresses:
+          - "172.16.11.83/23"
+        mtu: 1500
+        routes:
+          - network: 0.0.0.0/0
+            gateway: "172.16.2.1"
+        vip:
+          ip: "172.16.10.240"
+
+patches:
+  # Configure containerd
+  - |-
+    machine:
+      files:
+        - op: create
+          path: /etc/cri/conf.d/20-customization.part
+          content: |-
+            [plugins."io.containerd.grpc.v1.cri"]
+              enable_unprivileged_ports = true
+              enable_unprivileged_icmp = true
+            [plugins."io.containerd.grpc.v1.cri".containerd]
+              discard_unpacked_layers = false
+            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+              discard_unpacked_layers = false
+
+  # Disable search domain everywhere
+  - |-
+    machine:
+      network:
+        disableSearchDomain: true
+
+  # Enable cluster discovery
+  - |-
+    cluster:
+      discovery:
+        registries:
+          kubernetes:
+            disabled: false
+          service:
+            disabled: false
+
+  # Configure kubelet
+  - |-
+    machine:
+      kubelet:
+        extraArgs:
+          rotate-server-certificates: true
+        nodeIP:
+          validSubnets: ["172.16.2.10/23"]
+
+  # Force nameserver
+  - |-
+    machine:
+      network:
+        nameservers:
+          - 172.16.2.252
+
+  # Configure NTP
+  - |-
+    machine:
+      time:
+        disabled: false
+        servers: ["time.cloudflare.com"]
+
+  # Custom sysctl settings
+  - |-
+    machine:
+      sysctls:
+        fs.inotify.max_queued_events: 65536
+        fs.inotify.max_user_watches: 524288
+        fs.inotify.max_user_instances: 8192
+
+  # Mount openebs-hostpath in kubelet
+  - |-
+    machine:
+      kubelet:
+        extraMounts:
+          - destination: /var/openebs/local
+            type: bind
+            source: /var/openebs/local
+            options: ["bind", "rshared", "rw"]
+
+
+
+controlPlane:
+  patches:
+    # Cluster configuration
+    - |-
+      cluster:
+        allowSchedulingOnControlPlanes: true
+        controllerManager:
+          extraArgs:
+            bind-address: 0.0.0.0
+        proxy:
+          disabled: true
+        scheduler:
+          extraArgs:
+            bind-address: 0.0.0.0
+
+    # ETCD configuration
+    - |-
+      cluster:
+        etcd:
+          extraArgs:
+            listen-metrics-urls: http://0.0.0.0:2381
+          advertisedSubnets:
+            - "172.16.2.10/23"
+
+    # Disable default API server admission plugins.
+    - |-
+      - op: remove
+        path: /cluster/apiServer/admissionControl
+
+    # Enable K8s Talos API Access
+    - |-
+      machine:
+        features:
+          kubernetesTalosAPIAccess:
+            enabled: true
+            allowedRoles: ["os:admin"]
+            allowedKubernetesNamespaces: ["system-upgrade"]
+
+
