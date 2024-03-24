@@ -34,7 +34,7 @@ nodes:
         mtu: 1500
         routes:
           - network: 0.0.0.0/0
-            gateway: "172.16.2.1"
+            gateway: "172.16.10.1"
         vip:
           ip: "172.16.10.240"
   - hostname: "vdhclu01node02"
@@ -52,7 +52,7 @@ nodes:
         mtu: 1500
         routes:
           - network: 0.0.0.0/0
-            gateway: "172.16.2.1"
+            gateway: "172.16.10.1"
         vip:
           ip: "172.16.10.240"
   - hostname: "vdhclu01node03"
@@ -70,7 +70,7 @@ nodes:
         mtu: 1500
         routes:
           - network: 0.0.0.0/0
-            gateway: "172.16.2.1"
+            gateway: "172.16.10.1"
         vip:
           ip: "172.16.10.240"
 
@@ -113,7 +113,7 @@ patches:
         extraArgs:
           rotate-server-certificates: true
         nodeIP:
-          validSubnets: ["172.16.2.10/23"]
+          validSubnets: ["172.16.10.0/23"]
 
   # Force nameserver
   - |-
@@ -171,7 +171,7 @@ controlPlane:
           extraArgs:
             listen-metrics-urls: http://0.0.0.0:2381
           advertisedSubnets:
-            - "172.16.2.10/23"
+            - "172.16.10.0/23"
 
     # Disable default API server admission plugins.
     - |-

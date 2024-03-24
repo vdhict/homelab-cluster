@@ -7,4 +7,4 @@ metadata:
 data:
   TIMEZONE: "Europe/Amsterdam"
   CLUSTER_CIDR: "10.69.0.0/16"
-  NODE_CIDR: "172.16.2.10/23"
+  NODE_CIDR: "172.16.10.0/23"
